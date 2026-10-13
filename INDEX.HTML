@@ -1,0 +1,130 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DHT11 IoT Dashboard</title>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #eef4fa;
+  color: #183153;
+  text-align: center;
+  padding: 16px;
+  margin: 0;
+}
+.container { max-width: 800px; margin: auto; }
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+.card {
+  background: white;
+  border-radius: 16px;
+  padding: 24px 12px;
+  box-shadow: 0 4px 14px #0001;
+}
+.value { font-size: 38px; font-weight: bold; }
+.temp { color: #e76f51; }
+.hum { color: #168aad; }
+#status { margin: 20px; }
+iframe {
+  width: 100%;
+  border: 0;
+  background: white;
+  border-radius: 12px;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+  <h1>DHT11 IoT Dashboard</h1>
+  <p>Live Temperature and Humidity Monitoring</p>
+
+  <div class="cards">
+    <div class="card">
+      <h3>🌡 Temperature</h3>
+      <div class="value temp" id="temp">-- °C</div>
+    </div>
+    <div class="card">
+      <h3>💧 Humidity</h3>
+      <div class="value hum" id="hum">-- %</div>
+    </div>
+  </div>
+
+  <p id="status">Connecting to ThingSpeak...</p>
+  <p id="updated">Waiting for data</p>
+
+  <h2>Temperature History</h2>
+  <iframe id="tempChart" height="260"
+          title="Temperature chart"></iframe>
+
+  <h2>Humidity History</h2>
+  <iframe id="humChart" height="260"
+          title="Humidity chart"></iframe>
+</div>
+
+<script>
+// Enter your ThingSpeak Channel ID
+const CHANNEL_ID = "3533371";
+
+// For a public channel, leave this empty.
+// For a private channel, enter its Read API Key.
+const READ_API_KEY = "SF37P6U82RNUMP4H";
+
+async function updateDashboard() {
+  const status = document.getElementById("status");
+
+  try {
+    let url =
+      `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds/last.json`;
+
+    if (READ_API_KEY) {
+      url += `?api_key=${encodeURIComponent(READ_API_KEY)}`;
+    }
+
+    const response = await fetch(url + (url.includes("?") ? "&" : "?")
+                                  + "_=" + Date.now());
+
+    if (!response.ok) throw new Error("Cloud request failed");
+
+    const data = await response.json();
+
+    if (data.field1 == null || data.field2 == null) {
+      throw new Error("No readings available");
+    }
+
+    document.getElementById("temp").textContent =
+      Number(data.field1).toFixed(1) + " °C";
+
+    document.getElementById("hum").textContent =
+      Number(data.field2).toFixed(1) + " %";
+
+    document.getElementById("updated").textContent =
+      "Last cloud reading: " +
+      new Date(data.created_at).toLocaleString();
+
+    status.textContent = "Connected to ThingSpeak";
+
+  } catch (error) {
+    status.textContent =
+      "Unable to load data. Check channel settings and internet.";
+  }
+}
+
+// Cloud charts
+document.getElementById("tempChart").src =
+  `https://thingspeak.com/channels/${CHANNEL_ID}/charts/1?dynamic=true&results=60&type=line`;
+
+document.getElementById("humChart").src =
+  `https://thingspeak.com/channels/${CHANNEL_ID}/charts/2?dynamic=true&results=60&type=line`;
+
+updateDashboard();
+setInterval(updateDashboard, 20000);
+</script>
+</body>
+</html>
